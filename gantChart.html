@@ -1,23 +1,206 @@
 <!DOCTYPE html>
 <script src="https://d3js.org/d3.v7.min.js"></script>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8">
-    <title> TEEP Gant Chart</title>
-  </head>
-  <body>
-    <svg width="1000" height="600" y ="100">
 
-    </svg>
-  </body>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title> TEEP Gant Chart</title>
+</head>
+<body>
+<div id = "tooltip"></div>
+</body>
 </html>
 
 
-<script>
-  let fileURL = "https://raw.githubusercontent.com/ctcimmarrusti/teep/main/teep.csv?token=ATR4IURYS52WQGRDAJKVDB3BC3M36"
-d3.csv(fileURL).then(function(d){processCSV(d);})
-
-function processCSV(csvf){
-  console.log(csvf)
+<style media="screen">
+* {
+  margin: 0;
+  padding: 0;
 }
+body {
+  background: #fff;
+  font-family: 'Open-Sans',sans-serif;
+}
+
+div.tooltip {
+  position: absolute;
+  text-align: center;
+  font: 12px sans-serif;
+  background: lightsteelblue;
+  border: 0px;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.event :hover{
+  fill-opacity: .7
+}
+
+</style>
+
+
+<script>
+let w = 1200;
+let numberOfEvents; // will be defined based on the csv file load
+let h = 400;
+let vertPadding = 75 //TODO: make all these dependent so that changing w/h changes others automatically
+let sidePadding = 50
+let barHeight = 20;
+let gap = barHeight + 4;
+let teepStart = new Date() //sets start of teep for today
+let teepEnd = d3.timeDay.offset(new Date(), (365 * 2) );
+let dateDomain = [teepStart, teepEnd]
+
+let timeScale = d3.scaleTime()
+    .domain(dateDomain)//scales dates from teepStart to teepEnd
+    .range([0,w-(2* sidePadding)]) //gives a 50 px buffer on either end of graph
+
+let dateFormat = d3.timeFormat("%Y-%m-%d"); //YYYY-MM-DD format
+
+let categories = ["Status", "Exercise"]; //hardcoding in the different types of events for now
+//TODO: implement Automatic categories priority 50
+let categoriesAutomatic = new Array(); //may use this if I automatically generate categories from type
+
+
+let colorScale = d3.scaleLinear() // this line of code will be run again when the CSV is read in
+    .domain([0, categories.length])
+    .range(["#f4e153", "#362142"])
+    .interpolate(d3.interpolateHcl);
+
+let svg = d3.select("body") //initialize SVG
+  .append("svg")
+    .attr("width", w)
+    .attr("height", h)
+    .attr("class", "svg");
+
+let title = svg.append("text")
+    .text("Unit TEEP") //insert your unit name here
+    .attr("x", w/2)
+    .attr("y", 25)
+    .attr("text-anchor", "middle")
+    .attr("font-size", 18)
+    .attr("fill", "#009FFC");
+
+let toolTip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .attr("text-anchor", "left")
+    .style("opacity", 0)
+
+
+let fileURL = "https://raw.githubusercontent.com/ctcimmarrusti/teep/main/teep.csv"
+let cs
+d3.csv(fileURL) //load CSV
+  .then(function(d){makeGantt(d);}) //calls processCSV() on successful load
+  // .catch(console.log("error loading teep")) //throws error if loading error
+
+
+function makeGantt(events){
+  let filteredEvents = events.filter(function(e){
+    startComparison = (e.Start_Date < dateFormat(teepEnd)) // is the event start date prior to the teep end date
+    endComparison = (e.End_Date > dateFormat(teepStart)) //is the event end date after the teep start date
+    return startComparison && endComparison // must match both to be added
+  })
+  filteredEvents = filteredEvents.sort(function (a,b) {return d3.ascending(a.Type, b.Type) || d3.ascending(a.Start_Date, b.Start_Date) ;});
+  numberOfEvents = filteredEvents.length
+  console.log(numberOfEvents)
+  let colorScale = d3.scaleLinear()
+      .domain([0, categories.length])
+      .range(["#00B9FA", "#F95002"])
+      .interpolate(d3.interpolateHcl);
+
+  // makeGrid(sidePadding, vertPadding, w, h)
+  drawRects(filteredEvents, gap, vertPadding, sidePadding, barHeight, colorScale, w, h);
+  makeScales(timeScale)
+}
+
+function drawRects(theArray){
+
+let bigRects = svg.append("g")
+  .selectAll("rect")
+  .data(theArray)
+  .enter()
+  .append("rect")
+  .attr("x", sidePadding)
+  .attr("y", function(d, i){ return i*gap + vertPadding - 2;})
+  .attr("width", function(d){ return w-(sidePadding*2);})
+  .attr("height", gap)
+  .attr("stroke", "none")
+  .attr("fill", function(d,i){
+    for (var i = 0; i < categories.length; i++){
+      if (d.Type == categories[i]){ return d3.rgb(colorScale(i)); }
+      }})
+  .attr("opacity", 0.2);
+
+let rectangles = svg.append('g')
+  .attr("class", "event")
+  .selectAll("rect")
+  .data(theArray)
+  .enter();
+
+var teepEvent = rectangles.append("rect")
+  .attr("rx", 3)
+  .attr("ry", 3)
+  .attr("x", function(d){return timeScale(d3.max([new Date(d.Start_Date), teepStart])) + sidePadding;})
+  .attr("y", function(d, i){return i*gap + vertPadding; })
+  .attr("width", function(d){ return (timeScale(d3.min([new Date(d.End_Date), teepEnd]))-timeScale(new Date(d.Start_Date))); })
+  .attr("height", barHeight)
+  .attr("stroke", "none")
+  .attr("fill", function(d, i){
+    for (var i = 0; i < categories.length; i++){
+      if (d.Type == categories[i]){ return d3.rgb(colorScale(i)).darker();}
+    }})
+  .on("mouseover", function(event,d) {
+      let info = "";
+      dp = d3.select(this).data()[0] // data point
+      if (dp.Exercise_Name != undefined){
+        info = dp.Exercise_Name + "<br/>" +
+        "Starts: " + dp.Start_Date + "<br/>" +
+        "Ends: " + dp.End_Date + "<br/>" +
+        "Details: " + dp.Details
+      }
+      console.log(info)
+     toolTip.transition()
+       .duration(200)
+       .style("opacity", .9)
+
+     toolTip.html(info)
+       .style("left", (this.x.animVal.value) + "px")
+       .style("top", (this.y.animVal.value +20) + "px")
+     })
+   .on("mouseout", function(d) {
+     toolTip.transition()
+       .duration(200)
+       .style("opacity", 0);
+   });
+
+let rectText = rectangles.append("text") //
+  .text(function(d){ return d.Exercise_Name; })
+  .attr("x", function(d){  // the x value needs to be the average of beginning and end
+    let beg =  timeScale(d3.max([new Date(d.Start_Date), teepStart])) //either the first day or the teep start whichever comes first
+    let en =  timeScale(d3.min([new Date(d.End_Date), teepEnd])) //
+    return ((beg + en) / 2) + sidePadding; })
+  .attr("y", function(d, i){ return i*gap + 14+ vertPadding; })
+  .attr("font-size", 11)
+  .attr("text-anchor", "middle")
+  .attr("text-height", barHeight)
+  .attr("fill", "#000")
+  .on("mousemove", function(d) { // without this, the tooltip will be lost when over the text inside of the event
+    toolTip.style("opacity", 0.9);
+  });
+}
+
+function makeScales(tScale){
+  d3.select("svg")
+    .append("g")
+    .attr("transform", "translate(" +sidePadding+ "," +(vertPadding + (numberOfEvents * gap))+ ")")
+      .call(d3.axisTop(tScale)
+      .ticks(8,"%b %y")
+      .tickValues(tScale.ticks(10,"%b %y").concat(dateDomain))
+      .tickSize(numberOfEvents * gap + 50)
+      )
+    .call(g => g.selectAll(".tick")
+    .attr("stroke-opacity", 0.5)
+    .attr("stroke-dasharray", "2,2"))
+}
+
 </script>
