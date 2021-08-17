@@ -32,6 +32,7 @@ div.tooltip {
   pointer-events: none;
 }
 
+
 .event :hover{
   fill-opacity: .7
 }
@@ -57,15 +58,11 @@ let timeScale = d3.scaleTime()
 
 let dateFormat = d3.timeFormat("%Y-%m-%d"); //YYYY-MM-DD format
 
-let categories = ["Status", "Exercise"]; //hardcoding in the different types of events for now
-//TODO: implement Automatic categories priority 50
-let categoriesAutomatic = new Array(); //may use this if I automatically generate categories from type
+let categories = new Array();
 
 
-let colorScale = d3.scaleLinear() // this line of code will be run again when the CSV is read in
-    .domain([0, categories.length])
-    .range(["#f4e153", "#362142"])
-    .interpolate(d3.interpolateHcl);
+let colorScale // this line of code will be run again when the CSV is read in
+
 
 let svg = d3.select("body") //initialize SVG
   .append("svg")
@@ -79,7 +76,7 @@ let title = svg.append("text")
     .attr("y", 25)
     .attr("text-anchor", "middle")
     .attr("font-size", 18)
-    .attr("fill", "#009FFC");
+    .attr("fill", "#000");
 
 let toolTip = d3.select("body").append("div")
     .attr("class", "tooltip")
@@ -102,13 +99,16 @@ function makeGantt(events){
   })
   filteredEvents = filteredEvents.sort(function (a,b) {return d3.ascending(a.Type, b.Type) || d3.ascending(a.Start_Date, b.Start_Date) ;});
   numberOfEvents = filteredEvents.length
-  console.log(numberOfEvents)
-  let colorScale = d3.scaleLinear()
+
+  categories = checkUniqueCategories(filteredEvents)
+
+  colorScale = d3.scaleLinear()
       .domain([0, categories.length])
       .range(["#00B9FA", "#F95002"])
       .interpolate(d3.interpolateHcl);
 
-  // makeGrid(sidePadding, vertPadding, w, h)
+
+
   drawRects(filteredEvents, gap, vertPadding, sidePadding, barHeight, colorScale, w, h);
   makeScales(timeScale)
 }
@@ -137,6 +137,7 @@ let rectangles = svg.append('g')
   .data(theArray)
   .enter();
 
+//the actual box the event will fit inside
 var teepEvent = rectangles.append("rect")
   .attr("rx", 3)
   .attr("ry", 3)
@@ -158,7 +159,6 @@ var teepEvent = rectangles.append("rect")
         "Ends: " + dp.End_Date + "<br/>" +
         "Details: " + dp.Details
       }
-      console.log(info)
      toolTip.transition()
        .duration(200)
        .style("opacity", .9)
@@ -202,5 +202,22 @@ function makeScales(tScale){
     .attr("stroke-opacity", 0.5)
     .attr("stroke-dasharray", "2,2"))
 }
+
+//from this stackexchange question: http://stackoverflow.com/questions/1890203/unique-for-arrays-in-javascript
+function checkUniqueCategories(arr) {
+    var hash = {}, result = [];
+    catArray = new Array()
+    arr.forEach((item, i) => { catArray.push(item.Type) }); //array of categories
+    catArray.forEach((item, i) => {
+      if ( !hash.hasOwnProperty(catArray[i]) ) { //it works with objects! in FF, at least
+          hash[ catArray[i] ] = true;
+          result.push(catArray[i]);
+      }
+    });
+    return result
+
+
+}
+
 
 </script>
