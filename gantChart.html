@@ -32,7 +32,6 @@ div.tooltip {
   pointer-events: none;
 }
 
-
 .event :hover{
   fill-opacity: .7
 }
@@ -41,7 +40,7 @@ div.tooltip {
 
 
 <script>
-let w = 1300;
+let w = 1200;
 let numberOfEvents; // will be defined based on the csv file load
 let h = 400;
 let vertPadding = 75 //TODO: make all these dependent so that changing w/h changes others automatically
@@ -57,7 +56,6 @@ let timeScale = d3.scaleTime()
     .range([0,w-(2* sidePadding)]) //gives a 50 px buffer on either end of graph
 
 let dateFormat = d3.timeFormat("%Y-%m-%d"); //YYYY-MM-DD format
-
 let categories = new Array();
 let colorScale
 
@@ -85,7 +83,7 @@ let fileURL = "https://raw.githubusercontent.com/ctcimmarrusti/teep/main/teep.cs
 let cs
 d3.csv(fileURL) //load CSV
   .then(function(d){makeGantt(d);}) //calls processCSV() on successful load
-  // .catch(console.log("error loading teep")) //just kind of always throws an error 
+  // .catch(console.log("error loading teep")) //just kind of always throws an error
 
 
 function makeGantt(events){
@@ -118,9 +116,9 @@ function drawRects(theArray){
     .data(theArray)
     .enter()
     .append("rect")
-    .attr("x", sidePadding)
+    .attr("x", 0)
     .attr("y", function(d, i){ return i*gap + vertPadding - 2;})
-    .attr("width", function(d){ return w-(sidePadding*2);})
+    .attr("width", function(d){ return w-(sidePadding);})
     .attr("height", gap)
     .attr("stroke", "none")
     .attr("fill", function(d,i){
@@ -233,41 +231,36 @@ function vertLabels(theGap, theTopPad, theSidePad, theBarHeight, theColorScale){
   var numOccurances = new Array();
   var prevGap = 0;
 
-
-  for (var i = 0; i < categories.length; i++){
-    numOccurances[i] = [categories[i], getCount(categories[i], catsUnfiltered)];
-  }
-
-var axisText = svg.append("g") //without doing this, impossible to put grid lines behind text
- .selectAll("text")
- .data(numOccurances)
- .enter()
- .append("text")
- .text(function(d){
-  return d[0];
- })
- .attr("x", 10)
- .attr("y", function(d, i){
-  if (i > 0){
-    for (var j = 0; j < i; j++){
-      prevGap += numOccurances[i-1][1];
-      return d[1]*theGap/2 + prevGap * theGap + theTopPad;
+  for (var i = 0; i < categories.length; i++){ numOccurances[i] = [categories[i], getCount(categories[i], catsUnfiltered)]; }
+  var axisText = svg.append("g") //without doing this, impossible to put grid lines behind text
+   .selectAll("text")
+   .data(numOccurances)
+   .enter()
+   .append("text")
+   .text(function(d){
+    return d[0];
+   })
+   .attr("x", 10)
+   .attr("y", function(d, i){
+    if (i > 0){
+      for (var j = 0; j < i; j++){
+        prevGap += numOccurances[i-1][1];
+        return d[1]*theGap/2 + prevGap * theGap + theTopPad;
+      }
+    } else{
+      return d[1]*theGap/2 + theTopPad;
     }
-  } else{
-    return d[1]*theGap/2 + theTopPad;
-  }
- })
- .attr("font-size", 16)
- .attr("text-anchor", "start")
- .attr("text-height", 14)
- .style("word-wrap", "break-word")
- .attr("fill", function(d){
-  for (var i = 0; i < categories.length; i++){
-      if (d[0] == categories[i]){ return d3.rgb(theColorScale(i)).darker(); }
-  }
- });
+   })
+   .attr("font-size", 16)
+   .attr("text-anchor", "start") //TODO: Add text wrapping for these
+   .attr("text-height", 14)
+   .attr("fill", function(d){
+    for (var i = 0; i < categories.length; i++){
+        if (d[0] == categories[i]){ return d3.rgb(theColorScale(i)).darker(); }
+    }
+   });
 
-}
+  }
 
 // get specific from everything
 function getCount(word, arr) {
